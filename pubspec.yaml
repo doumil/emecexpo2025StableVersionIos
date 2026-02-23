@@ -85,6 +85,7 @@ flutter_native_splash:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
+  remove_alpha_ios: true
   image_path: "assets/ICON-EMEC.png" # Path to your logo image
   min_sdk_android: 21
 
