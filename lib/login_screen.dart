@@ -175,7 +175,7 @@ class _LoginScreenState extends State<LoginScreen> {
       body: Stack(
         children: [
           // Background Image
-          Positioned.fill(
+/*          Positioned.fill(
             child: Container(
               decoration: const BoxDecoration(
                 image: DecorationImage(
@@ -184,7 +184,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             ),
-          ),
+          ),*/
           // Gradient Overlay
           Positioned.fill(
             child: Container(

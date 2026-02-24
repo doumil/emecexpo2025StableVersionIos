@@ -459,7 +459,7 @@ class _HomeScreenState extends State<HomeScreen> {
             appBar: AppBar(
               title: Center(
                 child: Text(
-                  'Welcome, ${_loggedInUser?.prenom ?? 'Guest'}!',
+                  'Welcome, ${_loggedInUser?.prenom ?? _loggedInUser?.name ??'Guest'}!',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
