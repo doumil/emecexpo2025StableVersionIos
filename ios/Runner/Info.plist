@@ -48,6 +48,7 @@
       <key>UIStatusBarHidden</key>
       <false/>
 
+      <!-- Permissions -->
       <key>NSCameraUsageDescription</key>
       <string>We need access to your camera to take photos for exhibition displays and update your profile picture.</string>
       <key>NSPhotoLibraryUsageDescription</key>
@@ -56,6 +57,15 @@
       <string>We need access to your calendar to help you organize and sync event schedules within the app.</string>
       <key>NSLocationWhenInUseUsageDescription</key>
       <string>We need access to your location to find the nearest exhibitors and events around you.</string>
+
+      <key>LSApplicationQueriesSchemes</key>
+      <array>
+         <string>https</string>
+         <string>http</string>
+         <string>instagram</string>
+         <string>fb</string>
+         <string>linkedin</string>
+      </array>
 
    </dict>
 </plist>

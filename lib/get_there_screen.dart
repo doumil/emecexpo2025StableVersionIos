@@ -1,97 +1,80 @@
 // lib/get_there_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
-import 'package:provider/provider.dart'; // 💡 Import Provider
-import 'package:emecexpo/providers/theme_provider.dart'; // 💡 Import your ThemeProvider
+import 'package:url_launcher/url_launcher.dart';
+import 'package:provider/provider.dart';
+import 'package:emecexpo/providers/theme_provider.dart';
 
-class GetThereScreen extends StatefulWidget {
+class GetThereScreen extends StatelessWidget {
   const GetThereScreen({Key? key}) : super(key: key);
 
-  @override
-  _GetThereScreenState createState() => _GetThereScreenState();
-}
+  // إحداثيات الموقع (كمثال لـ Casablanca Expo)
+  final String lat = "33.5889";
+  final String lng = "-7.6114";
+  final String label = "EMEC EXPO";
 
-class _GetThereScreenState extends State<GetThereScreen> {
-  late final WebViewController _controller;
-  bool isLoading = true;
+  Future<void> _openMap() async {
+    // رابط يشتغل على Android (Google Maps) و iOS (Apple Maps)
+    final Uri googleMapsUrl = Uri.parse("google.navigation:q=$lat,$lng");
+    final Uri appleMapsUrl = Uri.parse("https://maps.apple.com/?q=$label&ll=$lat,$lng");
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageFinished: (String url) {
-            setState(() {
-              isLoading = false;
-            });
-          },
-          onWebResourceError: (WebResourceError error) {
-            setState(() {
-              isLoading = false;
-            });
-            print('Web view error: ${error.description}');
-          },
-        ),
-      )
-      ..loadRequest(Uri.parse('https://maps.google.com/maps?q=location&t=k&z=13&ie=UTF8&iwloc=&output=embed'));
+    try {
+      if (await canLaunchUrl(googleMapsUrl)) {
+        await launchUrl(googleMapsUrl);
+      } else if (await canLaunchUrl(appleMapsUrl)) {
+        await launchUrl(appleMapsUrl);
+      } else {
+        // إذا لم يجد تطبيق خرائط، يفتح المتصفح
+        final Uri browserUrl = Uri.parse("https://www.google.com/maps/search/?api=1&query=$lat,$lng");
+        await launchUrl(browserUrl, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      debugPrint("Error opening maps: $e");
+    }
   }
-
-  /*Future<bool> _onWillPop() async {
-    return (await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Êtes-vous sûr'),
-        content: const Text('Voulez-vous quitter une application'),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Non'),
-          ),
-          TextButton(
-            onPressed: () => SystemNavigator.pop(),
-            child: const Text('Oui '),
-          ),
-        ],
-      ),
-    )) ?? false;
-  }*/
 
   @override
   Widget build(BuildContext context) {
-    // 💡 Access the theme provider
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final theme = themeProvider.currentTheme;
+    final theme = Provider.of<ThemeProvider>(context).currentTheme;
 
-    return
-      //WillPopScope(
-      //onWillPop: _onWillPop,
-       Scaffold(
-        appBar: AppBar(
-          title: const Text('How to get there'),
-          centerTitle: true,
-          // ✅ Use primary color from the theme
-          backgroundColor: theme.primaryColor,
-          // ✅ Use white color from the theme
-          foregroundColor: theme.whiteColor,
-        ),
-        body: Stack(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('How to get there'),
+        centerTitle: true,
+        backgroundColor: theme.primaryColor,
+        foregroundColor: theme.whiteColor,
+      ),
+      body: Container(
+        padding: const EdgeInsets.all(20),
+        width: double.infinity,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            WebViewWidget(controller: _controller),
-            if (isLoading)
-              Center(
-                child: SpinKitThreeBounce(
-                  // ✅ Use primary color from the theme
-                  color: theme.primaryColor,
-                  size: 30.0,
-                ),
+            Icon(Icons.location_on, size: 100, color: theme.primaryColor),
+            const SizedBox(height: 20),
+            Text(
+              "Visit us at EMEC EXPO",
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: theme.blackColor),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              "Click the button below to start navigation using your favorite maps app.",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 40),
+            ElevatedButton.icon(
+              onPressed: _openMap,
+              icon: const Icon(Icons.directions, color: Colors.white),
+              label: const Text("Start Navigation", style: TextStyle(color: Colors.white, fontSize: 18)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primaryColor,
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
               ),
+            ),
           ],
         ),
-     // ),
+      ),
     );
   }
 }
