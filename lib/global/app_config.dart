@@ -5,7 +5,7 @@ class AppConfig {
 
   static const String baseUrl = "https://buzzevents.co";
 
-  static const String version = "1.0.1+1";
+  static const String version = "1.0.1+4";
 
   static const String registerUrl = "https://www.emecexpo.com/fr/tickets/";
 

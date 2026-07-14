@@ -48,7 +48,9 @@
       <key>UIStatusBarHidden</key>
       <false/>
 
-      <!-- Permissions -->
+      <key>ITSAppUsesNonExemptEncryption</key>
+      <false/>
+
       <key>NSCameraUsageDescription</key>
       <string>We need access to your camera to take photos for exhibition displays and update your profile picture.</string>
       <key>NSPhotoLibraryUsageDescription</key>
