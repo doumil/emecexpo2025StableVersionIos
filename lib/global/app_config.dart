@@ -12,5 +12,6 @@ class AppConfig {
   static const String logoBaseUrl = "$baseUrl/uploads/";
 
   static String get appSettingsUrl => "$baseUrl/api/events/$eventId/app-settings";
+
   static String get loginUrl => "$baseUrl/api/login";
 }
