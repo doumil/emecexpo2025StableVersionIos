@@ -2,15 +2,18 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+// 💡 إستيراد الـ Config الجلوبال الموحد بـ الـ Package Import المضمون
+import 'package:emecexpo/global/app_config.dart';
 import 'package:emecexpo/model/program_model.dart';
 
 class ProgramApiService {
-  // Use the API endpoint you provided
-  static const String _apiUrl = 'https://buzzevents.co/api/edition/1118/program';
+  // 🔗 تعويض الـ URL بـ شكل ديناميكي كيقرا الـ Base URL والـ Edition ID من الـ Config ديريكت
+  static final String _apiUrl = '${AppConfig.baseUrl}/api/edition/${AppConfig.editionId}/program';
 
   Future<ProgramDataModel> fetchProgramDetails() async {
     final url = Uri.parse(_apiUrl);
     try {
+      print("🔍 [ProgramApiService] Fetching program from: $_apiUrl");
       final response = await http.get(url);
 
       if (response.statusCode == 200) {

@@ -1,10 +1,15 @@
+// lib/api_services/networking_api_service.dart
+
 import 'dart:convert';
 import 'api_client.dart';
+// 💡 إستيراد الـ Config الجلوبال الموحد
+import 'package:emecexpo/global/app_config.dart';
 import '../model/exposant_networking_model.dart';
 import '../model/commerciaux_model.dart';
 
 class NetworkingApiService {
-  static const int currentEditionId = 1149;
+  // 🆔 تعويض الرقم المجمّد بـ المتغير الديناميكي من الـ Config وتحويله لـ int
+  static final int currentEditionId = int.tryParse(AppConfig.editionId) ?? 1133;
 
   /// Fetch Exhibitors
   Future<List<ExposantNetworking>> getNetworkingExhibitors(String userToken) async {
@@ -20,6 +25,7 @@ class NetworkingApiService {
       }
       return [];
     } catch (e) {
+      print('DEBUG: [NetworkingApiService] getNetworkingExhibitors Error: $e');
       return [];
     }
   }
@@ -37,6 +43,7 @@ class NetworkingApiService {
       }
       throw Exception("Server Error");
     } catch (e) {
+      print('DEBUG: [NetworkingApiService] getCommerciaux Error: $e');
       throw Exception("Could not load commercials.");
     }
   }

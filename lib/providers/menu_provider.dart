@@ -1,107 +1,112 @@
-// [lib/providers/menu_provider.dart]
+import 'package:flutter/material.dart';
+import 'package:emecexpo/providers/app_config_provider.dart';
+import 'package:emecexpo/constants.dart';
 
-import 'dart:convert'; // For using json.decode
-import 'package:flutter/material.dart'; // For using ChangeNotifier
-import 'package:http/http.dart' as http; // For API calls
+class MenuItem {
+  final String title;
+  final IconData icon;
+  final DrawerSections section;
+  final bool isCustomCard;
 
-// Data model for the API configuration
+  MenuItem({
+    required this.title,
+    required this.icon,
+    required this.section,
+    this.isCustomCard = false,
+  });
+}
+
 class MenuConfig {
   final bool floorPlan;
   final bool exhibitors;
   final bool speakers;
-  final bool program;
+  final bool program; // خاص بـ Program Screen
   final bool sponsors;
   final bool partners;
   final bool badge;
-  final bool products;
   final bool networking;
-  final bool congresses;
-  final bool title;
-  final bool description;
-  final bool venue;
-  final bool dates;
-  final bool logo;
-  final bool organizer;
 
   MenuConfig({
-    required this.floorPlan,
-    required this.exhibitors,
-    required this.speakers,
-    required this.program,
-    required this.sponsors,
-    required this.partners,
-    required this.badge,
-    this.products = false,
-    this.networking = false,
-    this.congresses = false,
-    this.title = false,
-    this.description = false,
-    this.venue = false,
-    this.dates = false,
-    this.logo = false,
-    this.organizer = false,
+    this.floorPlan = true,
+    this.exhibitors = true,
+    this.speakers = true,
+    this.program = true,
+    this.sponsors = true,
+    this.partners = true,
+    this.badge = true,
+    this.networking = true,
   });
 
-  factory MenuConfig.fromJson(Map<String, dynamic> json) {
-    // Safely extract boolean values from the 'data' field
-    final data = json['data'] as Map<String, dynamic>? ?? {};
+  factory MenuConfig.fromRawData(Map<String, dynamic> data) {
+    bool getValue(String key) {
+      dynamic value = data[key];
+      if (value == null) {
+        final lowerKey = key.toLowerCase();
+        final exactKey = data.keys.firstWhere((k) => k.toLowerCase() == lowerKey, orElse: () => '');
+        if (exactKey.isNotEmpty) value = data[exactKey];
+      }
+
+      if (value == null) return true;
+      if (value is bool) return value;
+      if (value is Map && value.containsKey('enabled')) {
+        return value['enabled'] == true;
+      }
+      return value.toString() == '1' || value.toString().toLowerCase() == 'true';
+    }
 
     return MenuConfig(
-      floorPlan: data['floor_plan'] == true,
-      exhibitors: data['exhibitors'] == true,
-      speakers: data['speakers'] == true,
-      program: data['program'] == true,
-      sponsors: data['sponsors'] == true,
-      partners: data['partners'] == true,
-      badge: data['badge'] == true,
-      // Assuming these keys might exist in other API versions or need defaults
-      products: data['products'] == true,
-      networking: data['networking'] == true,
-      congresses: data['congresses'] == true,
-
-      title: data['title'] == true,
-      description: data['description'] == true,
-      venue: data['venue'] == true,
-      dates: data['dates'] == true,
-      logo: data['logo'] == true,
-      organizer: data['organizer'] == true,
+      floorPlan: getValue('floor_plan'),
+      exhibitors: getValue('exhibitors'),
+      speakers: getValue('speakers'),
+      program: getValue('program'), // كيقرا الـ bool ديريكت من السيرفر
+      sponsors: getValue('sponsors'),
+      partners: getValue('partners'),
+      badge: getValue('badge'),
+      networking: getValue('networking'),
     );
   }
 }
 
-// FIX: Change MenuProvider to extend ChangeNotifier to define notifyListeners.
-class MenuProvider extends ChangeNotifier {
+class MenuProvider with ChangeNotifier {
   MenuConfig? _menuConfig;
   MenuConfig? get menuConfig => _menuConfig;
 
-  // FIX: Use the actual API URL provided
-  final String _apiUrl = 'https://buzzevents.co/api/events/10/app-settings';
+  List<MenuItem> _visibleItems = [];
+  List<MenuItem> get visibleItems => _visibleItems;
 
-  Future<void> fetchMenuConfig() async {
-    try {
-      final response = await http.get(Uri.parse(_apiUrl));
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonResponse = json.decode(response.body);
-        _menuConfig = MenuConfig.fromJson(jsonResponse);
-      } else {
-        print('Failed to load menu config. Status code: ${response.statusCode}');
-        _menuConfig = _getDefaultMenuConfig();
-      }
-    } catch (e) {
-      print('Error fetching menu config: $e');
-      _menuConfig = _getDefaultMenuConfig();
+  void updateMenuFromConfig(AppConfigProvider configProvider) {
+    final Map<String, dynamic>? data = configProvider.rawSettings;
+    if (data != null) {
+      _menuConfig = MenuConfig.fromRawData(data);
+      _generateVisibleItems();
+      notifyListeners();
     }
-    // FIX: notifyListeners is now defined and called
-    notifyListeners();
   }
 
-  MenuConfig _getDefaultMenuConfig() {
-    // Provide a safe default configuration if API fails
-    return MenuConfig(
-      floorPlan: true, exhibitors: true, speakers: true, program: true,
-      sponsors: true, partners: true, badge: true, products: true,
-      networking: true, congresses: true,
-    );
+  void _generateVisibleItems() {
+    if (_menuConfig == null) return;
+
+    // 🟩 هنا تم الفصل: تفك الارتباط وبقت كل وحدة تابعة للـ الـ Config ديالها
+    final List<Map<String, dynamic>> allItems = [
+      {'title': 'My Badge', 'icon': Icons.qr_code_scanner, 'section': DrawerSections.myBadge, 'status': _menuConfig!.badge, 'custom': true},
+      {'title': 'Floor Plan', 'icon': Icons.location_on_outlined, 'section': DrawerSections.eFP, 'status': _menuConfig!.floorPlan},
+      {'title': 'Program', 'icon': Icons.event_note, 'section': DrawerSections.program, 'status': _menuConfig!.program}, // شاشة الـ البروݣرام العام
+      {'title': 'My Agenda', 'icon': Icons.calendar_today_outlined, 'section': DrawerSections.myAgenda, 'status': _menuConfig!.badge}, // لـجندة الشخصية (مربوطة بالـ badge/الأكونت)
+      {'title': 'Exhibitors', 'icon': Icons.store_mall_directory_outlined, 'section': DrawerSections.exhibitors, 'status': _menuConfig!.exhibitors},
+      {'title': 'Networking', 'icon': Icons.people_outline, 'section': DrawerSections.networking, 'status': _menuConfig!.networking},
+      {'title': 'Speakers', 'icon': Icons.person_outline, 'section': DrawerSections.speakers, 'status': _menuConfig!.speakers},
+      {'title': 'Institutional\nPartners', 'icon': Icons.handshake_outlined, 'section': DrawerSections.partners, 'status': _menuConfig!.partners},
+      {'title': 'Sponsors', 'icon': Icons.favorite_outline, 'section': DrawerSections.sponsors, 'status': _menuConfig!.sponsors},
+    ];
+
+    _visibleItems = allItems
+        .where((item) => item['status'] == true)
+        .map((item) => MenuItem(
+      title: item['title'] as String,
+      icon: item['icon'] as IconData,
+      section: item['section'] as DrawerSections,
+      isCustomCard: item['custom'] == true,
+    ))
+        .toList();
   }
 }

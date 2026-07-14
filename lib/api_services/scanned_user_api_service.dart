@@ -3,10 +3,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import 'package:emecexpo/global/app_config.dart';
 
 class ScannedUserApiService {
-  static const String _baseUrl = 'https://buzzevents.co/api/user-by-order/';
+  // Base URL built dynamically from global application configuration
+  static final String _baseUrl = '${AppConfig.baseUrl}/api/user-by-order/';
 
+  /// Fetches scanned user profile details using a unique QR hash identifier.
   Future<Map<String, dynamic>> getUserByQrHash(String qrHash) async {
     final url = Uri.parse('$_baseUrl$qrHash');
     debugPrint('[API Service] Attempting API call to: $url');
@@ -19,18 +22,16 @@ class ScannedUserApiService {
         debugPrint('[API Service] Response Status 200. JSON Keys: ${responseJson.keys.join(', ')}');
 
         if (responseJson['success'] == true) {
-          // *** CRITICAL FIX: Extract user data from remote 'data' key ***
           final Map<String, dynamic>? userData = responseJson['data'] as Map<String, dynamic>?;
 
           if (userData == null || userData.isEmpty) {
-            debugPrint('[API Service] Success=true but "data" key is null/empty.');
+            debugPrint('[API Service] Success=true but "data" key is null or empty.');
             return {
               'success': false,
               'message': responseJson['message'] ?? 'User not found or data is empty.'
             };
           }
 
-          // ✅ FIX: Return the success result in the expected format
           return {
             'success': true,
             'userMap': userData,

@@ -1,139 +1,87 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:emecexpo/providers/app_config_provider.dart';
 
-// Data model for a single card
 class CardItem {
   final String title;
   final String iconName;
   final String dataValue;
   final bool isCustomCard;
+  final String apiKey;
 
   CardItem({
     required this.title,
     required this.iconName,
     required this.dataValue,
     this.isCustomCard = false,
+    required this.apiKey,
   });
 
-  // Factory constructor to create a CardItem from a JSON map
-  factory CardItem.fromJson(Map<String, dynamic> json) {
+  CardItem copyWith({String? dataValue}) {
     return CardItem(
-      title: json['title'] ?? '',
-      iconName: json['iconName'] ?? '',
-      dataValue: json['dataValue'] ?? '',
-      isCustomCard: json['isCustomCard'] ?? false,
+      title: this.title,
+      iconName: this.iconName,
+      dataValue: dataValue ?? this.dataValue,
+      isCustomCard: this.isCustomCard,
+      apiKey: this.apiKey,
     );
   }
 }
 
-// Provider to manage the list of cards
 class HomeProvider with ChangeNotifier {
   List<CardItem> _cards = [];
-  bool _isLoading = false;
-
   List<CardItem> get cards => _cards;
-  bool get isLoading => _isLoading;
 
-  // Placeholder for fetching data from an API
-  Future<void> fetchCards() async {
-    _isLoading = true;
-    notifyListeners();
-
-    // Replace with your actual API call
-    try {
-      final response = await http.get(Uri.parse('YOUR_API_ENDPOINT_FOR_CARDS_HERE'));
-      if (response.statusCode == 200) {
-        final List<dynamic> jsonList = json.decode(response.body);
-        _cards = jsonList.map((json) => CardItem.fromJson(json)).toList();
-      } else {
-        // Fallback to a default list of cards if API call fails
-        _cards = _getDefaultCards();
-      }
-    } catch (e) {
-      print('Error fetching cards from API: $e');
-      _cards = _getDefaultCards();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+  HomeProvider() {
+    _cards = _getDefaultCards();
   }
 
-  // Fallback data if the API is not available
+  void updateCardsFromConfig(AppConfigProvider configProvider) {
+    final Map<String, dynamic>? data = configProvider.rawSettings;
+    if (data == null) return;
+
+    String checkState(String dataKey) {
+      // إذا كنا نتحقق من My Agenda، نربطها بحالة الـ badge
+      String finalKey = (dataKey == 'my_agenda') ? 'badge' : dataKey;
+
+      dynamic value = data[finalKey];
+      if (value == null) {
+        final lowerKey = finalKey.toLowerCase();
+        final exactKey = data.keys.firstWhere((k) => k.toLowerCase() == lowerKey, orElse: () => '');
+        if (exactKey.isNotEmpty) value = data[exactKey];
+      }
+
+      if (value == null) return '1';
+
+      if (value is bool) {
+        return value ? '1' : '0';
+      }
+      if (value is Map && value.containsKey('enabled')) {
+        return value['enabled'] == true ? '1' : '0';
+      }
+      if (value == 0 || value == '0' || value == false) {
+        return '0';
+      }
+      return '1';
+    }
+
+    _cards = _getDefaultCards().map((card) {
+      final String status = checkState(card.apiKey);
+      return card.copyWith(dataValue: status);
+    }).toList();
+
+    notifyListeners();
+  }
+
   List<CardItem> _getDefaultCards() {
     return [
-      CardItem(
-        title: 'My Badge',
-        iconName: 'qr_code_scanner',
-        dataValue: '1',
-        isCustomCard: true,
-      ),
-      CardItem(
-        title: 'Floor Plan',
-        iconName: 'location_on_outlined',
-        dataValue: '1',
-      ),
-      CardItem(
-        title: 'Networking',
-        iconName: 'people_outline',
-        dataValue: '2',
-      ),
-      CardItem(
-        title: 'Exhibitors',
-        iconName: 'store_mall_directory_outlined',
-        dataValue: '1',
-      ),
-      CardItem(
-        title: 'Products',
-        iconName: 'category_outlined',
-        dataValue: '2',
-      ),
-      CardItem(
-        title: 'Conferences',
-        iconName: 'speaker_notes_outlined',
-        dataValue: '1',
-      ),
-      CardItem(
-        title: 'My Agenda',
-        iconName: 'calendar_today_outlined',
-        dataValue: '2',
-      ),
-      CardItem(
-        title: 'Institutional\nPartners',
-        iconName: 'handshake_outlined',
-        dataValue: '1',
-      ),
-      CardItem(
-        title: 'Sponsors',
-        iconName: 'favorite_outline',
-        dataValue: '2',
-      ),
+      CardItem(title: 'My Badge', iconName: 'qr_code_scanner', dataValue: '1', isCustomCard: true, apiKey: 'badge'),
+      CardItem(title: 'Floor Plan', iconName: 'location_on_outlined', dataValue: '1', apiKey: 'floor_plan'),
+      CardItem(title: 'Program', iconName: 'event_note', dataValue: '1', apiKey: 'program'), // تابعة لـ program ف الـ API
+      CardItem(title: 'My Agenda', iconName: 'calendar_today_outlined', dataValue: '1', apiKey: 'my_agenda'), // تابعة للـ badge/user حسابيا
+      CardItem(title: 'Exhibitors', iconName: 'store_mall_directory_outlined', dataValue: '1', apiKey: 'exhibitors'),
+      CardItem(title: 'Conferences', iconName: 'speaker_notes_outlined', dataValue: '1', apiKey: 'speakers'),
+      CardItem(title: 'Institutional\nPartners', iconName: 'handshake_outlined', dataValue: '1', apiKey: 'partners'),
+      CardItem(title: 'Sponsors', iconName: 'favorite_outline', dataValue: '1', apiKey: 'sponsors'),
     ];
-  }
-}
-
-// Helper function to map string icon names to IconData objects
-IconData getIconDataFromString(String iconName) {
-  switch (iconName) {
-    case 'qr_code_scanner':
-      return Icons.qr_code_scanner;
-    case 'location_on_outlined':
-      return Icons.location_on_outlined;
-    case 'people_outline':
-      return Icons.people_outline;
-    case 'store_mall_directory_outlined':
-      return Icons.store_mall_directory_outlined;
-    case 'category_outlined':
-      return Icons.category_outlined;
-    case 'speaker_notes_outlined':
-      return Icons.speaker_notes_outlined;
-    case 'calendar_today_outlined':
-      return Icons.calendar_today_outlined;
-    case 'handshake_outlined':
-      return Icons.handshake_outlined;
-    case 'favorite_outline':
-      return Icons.favorite_outline;
-    default:
-      return Icons.error; // Fallback icon
   }
 }

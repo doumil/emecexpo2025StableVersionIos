@@ -1,14 +1,18 @@
+// lib/services/api_client.dart
+
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import '../global/app_config.dart';
+
 class ApiClient {
-  // 1. Updated to your actual domain
-  static const String _baseUrl = 'https://buzzevents.co/api';
+  // 🌐 1. الـ Base URL ولا كيجيب ديريكت من السورس مع زيادة /api
+  static final String _baseUrl = '${AppConfig.baseUrl}/api';
 
   static String? _accessToken;
 
-  // Ensure this matches your production API Key if one is required
-  static const String _apiKey = '1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7';
+  // 🔑 2. الـ API Key ولا كايتجر ديريكت من بلاصتو ف الـ Config
+  static final String _apiKey = AppConfig.apiKey;
 
   static void setAccessToken(String? token) {
     _accessToken = token;
@@ -18,7 +22,7 @@ class ApiClient {
     Map<String, String> headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'X-Api-Key': _apiKey,
+      'X-Api-Key': _apiKey, // 💡 غايقرا الـ Key الجديد
       // 🛡️ CRITICAL: This bypasses Nginx 403 blocks by mimicking a real browser
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     };
@@ -26,20 +30,18 @@ class ApiClient {
     String? tokenToUse = authToken ?? _accessToken;
 
     if (requireAuth && tokenToUse != null && tokenToUse.isNotEmpty) {
-      // Clean the token (remove "Bearer " if it's already there to avoid "Bearer Bearer ...")
       String cleanToken = tokenToUse.replaceFirst('Bearer ', '').trim();
       headers['Authorization'] = 'Bearer $cleanToken';
 
       print('--- API DEBUG ---');
       print('URL: $_baseUrl');
-      print('Auth: Sending Bearer Token (Starts with: ${cleanToken.substring(0, 10)}...)');
+      print('Auth: Sending Bearer Token (Starts with: ${cleanToken.length > 10 ? cleanToken.substring(0, 10) : cleanToken}...)');
     }
 
     return headers;
   }
 
   static Future<http.Response> get(String endpoint, {Map<String, String>? queryParameters, bool requireAuth = false, String? authToken}) async {
-    // Ensure the endpoint starts with /
     final String path = endpoint.startsWith('/') ? endpoint : '/$endpoint';
     Uri uri = Uri.parse('$_baseUrl$path');
 
@@ -54,7 +56,6 @@ class ApiClient {
         headers: getHeaders(requireAuth: requireAuth, authToken: authToken),
       );
 
-      // We handle errors but RETURN the response so the Service can see the body
       _logResponse(response);
       handleResponseError(response);
       return response;
@@ -96,7 +97,6 @@ class ApiClient {
       return;
     }
 
-    // If we hit 403, we know it's a header/permission issue
     if (response.statusCode == 403) {
       throw Exception('Client error (403): Access Forbidden. Please check User-Agent or Token permissions.');
     }

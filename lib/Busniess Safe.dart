@@ -156,7 +156,7 @@ class _BusinessScreenState extends State<BusinessScreen> {
                     decoration: BoxDecoration(),
                   ),
                   Image.asset(
-                    'assets/safety/distance.gif',
+                    '',
                     width: width,
                     height: 250,
                   ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -16,19 +18,28 @@ class GetThereScreen extends StatefulWidget {
 
 class _GetThereScreenState extends State<GetThereScreen> {
   SharedPreferences? prefs;
+  late final WebViewController _controller;
+  bool isLoading = true;
   bool isPrefsLoading = true;
 
-  // إحداثيات المعرض الدولي بالدار البيضاء (OFEC)
+  // Event venue info
   static const String fixedLat = "33.5783";
   static const String fixedLng = "-7.6273";
   static const String fixedLocationName = "Casablanca International Fair (OFEC)";
+
+  // Official Google Maps Embed URL for OFEC Casablanca
+  String get _mapsUrl {
+    return 'https://www.google.com/maps/embed?pb=!1m12!1m8!1m3!1d106369.29218045658!2d-7.6272583!3d33.5783008!3m2!1i1024!2i768!4f13.1!2m1!1sCasablanca%20International%20Fair%20OFEC!5e0!3m2!1sen!2sma!4v1761148820478!5m2!1sen!2sma';
+  }
 
   @override
   void initState() {
     super.initState();
     _initPreferences();
+    _initWebViewController();
   }
 
+  // Initialize SharedPreferences asynchronously
   Future<void> _initPreferences() async {
     prefs = await SharedPreferences.getInstance();
     if (mounted) {
@@ -38,51 +49,77 @@ class _GetThereScreenState extends State<GetThereScreen> {
     }
   }
 
-  // وظيفة فتح الخريطة الخارجية (الخيار الأفضل للقبول في المتجر)
-  Future<void> _openMapNavigation() async {
-    final Uri googleUrl = Uri.parse("google.navigation:q=$fixedLat,$fixedLng");
-    final Uri appleUrl = Uri.parse("https://maps.apple.com/?q=$fixedLocationName&ll=$fixedLat,$fixedLng");
-
-    try {
-      if (await canLaunchUrl(googleUrl)) {
-        await launchUrl(googleUrl);
-      } else if (await canLaunchUrl(appleUrl)) {
-        await launchUrl(appleUrl);
-      } else {
-        // إذا لم يتوفر تطبيق خرائط، نفتح المتصفح
-        final Uri browserUrl = Uri.parse("https://www.google.com/maps/search/?api=1&query=$fixedLat,$fixedLng");
-        await launchUrl(browserUrl, mode: LaunchMode.externalApplication);
-      }
-    } catch (e) {
-      debugPrint('Error launching maps: $e');
-    }
+  // Setup WebView controller
+  void _initWebViewController() {
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (String url) {
+            setState(() {
+              isLoading = false;
+            });
+          },
+          onWebResourceError: (WebResourceError error) {
+            setState(() {
+              isLoading = false;
+            });
+            debugPrint(
+                'WebView error: ${error.errorCode} — ${error.description}');
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(_mapsUrl));
   }
 
-  void _onAppBarBack() async {
-    if (prefs == null) {
-      prefs = await SharedPreferences.getInstance();
+  // Handle back button behavior
+  Future<bool> _onWillPop() async {
+    if (await _controller.canGoBack()) {
+      _controller.goBack();
+      return false;
     }
-    await prefs?.setString("Data", "99");
+    return (await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Êtes-vous sûr ?'),
+        content: const Text('Voulez-vous quitter l\'application ?'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Non'),
+          ),
+          TextButton(
+            onPressed: () => SystemNavigator.pop(),
+            child: const Text('Oui'),
+          ),
+        ],
+      ),
+    )) ??
+        false;
+  }
 
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const WelcomPage()),
-      );
+  // Handle app bar back action
+  void _onAppBarBack() async {
+    if (!mounted) return;
+
+    if (prefs == null) {
+      await _initPreferences();
     }
+
+    prefs?.setString("Data", "99");
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => WelcomPage()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = context.select((ThemeProvider p) => p.currentTheme);
 
-    // استخدام PopScope بدلاً من WillPopScope الملغى في النسخ الجديدة
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        _onAppBarBack(); // نرجعه للصفحة الرئيسية عند محاولة الرجوع
-      },
+    return WillPopScope(
+      onWillPop: _onWillPop,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('How to Get There'),
@@ -94,40 +131,23 @@ class _GetThereScreenState extends State<GetThereScreen> {
           backgroundColor: theme.primaryColor,
           foregroundColor: theme.whiteColor,
         ),
-        body: isPrefsLoading
-            ? Center(child: CircularProgressIndicator(color: theme.primaryColor))
-            : Container(
-          padding: const EdgeInsets.all(24.0),
-          width: double.infinity,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.location_on, size: 80, color: theme.primaryColor),
-              const SizedBox(height: 20),
-              Text(
-                fixedLocationName,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.blackColor),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                "Click the button below to start navigation to the Casablanca International Fair (OFEC).",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 40),
-              ElevatedButton.icon(
-                onPressed: _openMapNavigation,
-                icon: const Icon(Icons.directions, color: Colors.white),
-                label: const Text("Start Navigation", style: TextStyle(color: Colors.white, fontSize: 18)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.primaryColor,
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        body: Stack(
+          children: [
+            // Full-screen map
+            WebViewWidget(controller: _controller),
+
+            // Loading overlay
+            if (isLoading || isPrefsLoading)
+              Container(
+                color: theme.whiteColor,
+                child: Center(
+                  child: SpinKitThreeBounce(
+                    color: theme.primaryColor,
+                    size: 30.0,
+                  ),
                 ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );

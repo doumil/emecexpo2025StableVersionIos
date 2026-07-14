@@ -1,31 +1,22 @@
+// lib/widgets/facebook_follow_card.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:emecexpo/providers/theme_provider.dart';
+import 'package:emecexpo/providers/theme_provider.dart'; // Make sure this path is correct
+import 'package:emecexpo/model/app_theme_data.dart'; // Assuming your AppThemeData is here
 
 class FacebookScreen extends StatelessWidget {
   const FacebookScreen({super.key});
 
-  // الروابط الخاصة بفيسبوك
-  static const String _facebookWebUrl = 'https://www.facebook.com/EMECEXPO';
-  static const String _facebookAppUrl = 'fb://facewebmodal/f?href=$_facebookWebUrl';
+  static const String _facebookUrl = 'https://www.facebook.com/EMECEXPO';
 
   Future<void> _launchFacebookPage(BuildContext context) async {
-    final Uri appUri = Uri.parse(_facebookAppUrl);
-    final Uri webUri = Uri.parse(_facebookWebUrl);
-
-    try {
-      // كيحاول يحل التطبيق أولاً
-      if (await canLaunchUrl(appUri)) {
-        await launchUrl(appUri, mode: LaunchMode.externalApplication);
-      } else {
-        // إلى ماكانش التطبيق كايحل المتصفح
-        await launchUrl(webUri, mode: LaunchMode.externalApplication);
-      }
-    } catch (e) {
+    final Uri url = Uri.parse(_facebookUrl);
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not launch Facebook.')),
+          const SnackBar(content: Text('Could not launch Facebook page.')),
         );
       }
     }
@@ -34,6 +25,8 @@ class FacebookScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeProvider>(context).currentTheme;
+
+    // Define Facebook blue color
     const Color facebookBlue = Color(0xFF1877F2);
 
     return GestureDetector(
@@ -42,79 +35,84 @@ class FacebookScreen extends StatelessWidget {
         padding: const EdgeInsets.all(12.0),
         margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
         decoration: BoxDecoration(
-          // استعملنا الشفافية مع الألوان ديال الـ Theme باش يجي متناسق
-          color: theme.primaryColor.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(15.0),
-          border: Border.all(color: theme.primaryColor.withOpacity(0.1)),
+          // Use a dark color for the card background, similar to the image
+          color: Colors.grey.withOpacity(0.4), // Assuming darkColor is a dark grey/black
+          borderRadius: BorderRadius.circular(12.0),
+          border: Border.all(color: Colors.grey.withOpacity(0.2)), // Subtle border
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // اللوغو
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10), // شكل عصري شوية
+            // Left: Circular Logo (EMECEXPO.png)
+            ClipOval(
               child: Image.asset(
-                'assets/emec.jpg',
+                'assets/emec.jpg', // Your EMEC EXPO logo
                 width: 60,
                 height: 60,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) => CircleAvatar(
                   radius: 30,
-                  backgroundColor: facebookBlue.withOpacity(0.1),
-                  child: const Icon(Icons.facebook, color: facebookBlue, size: 35),
+                  backgroundColor: theme.primaryColor.withOpacity(0.3),
+                  child: Icon(Icons.public, color: theme.whiteColor, size: 30),
                 ),
               ),
             ),
-            const SizedBox(width: 15.0),
+            const SizedBox(width: 12.0),
 
-            // المعلومات
+            // Middle: Text Content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min, // Take minimum space vertically
                 children: [
                   Row(
                     children: [
                       Text(
                         'EMEC EXPO',
                         style: TextStyle(
-                          color: theme.blackColor, // استعملنا لون الـ Theme
+                          color: theme.primaryColor, // Use primary text color
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(width: 8),
-                      // علامة التوثيق (اختيارية كتعطي منظر زوين)
-                      const Icon(Icons.verified, color: facebookBlue, size: 16),
+                      // "Follow" button
+                      TextButton(
+                        onPressed: () => _launchFacebookPage(context),
+                        style: TextButton.styleFrom(
+                          foregroundColor: facebookBlue, // Facebook Blue for text color
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero, // Remove default padding
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap, // Shrink tap area
+                        ),
+                        child: Text(
+                          'Follow',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: facebookBlue,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Internet Marketing Service',
                     style: TextStyle(
-                      color: theme.blackColor.withOpacity(0.6),
+                      color: Colors.black45, // Use secondary text color
                       fontSize: 13,
                     ),
                   ),
+                  const SizedBox(height: 2),
                   Text(
-                    '2K followers',
+                    '2K followers', // Or dynamically load this if possible
                     style: TextStyle(
-                      color: theme.blackColor.withOpacity(0.6),
-                      fontSize: 12,
+                      color: Colors.black45, // Use secondary text color
+                      fontSize: 13,
                     ),
                   ),
                 ],
-              ),
-            ),
-
-            // زر Follow الصغير
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: facebookBlue,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Text(
-                'Follow',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
               ),
             ),
           ],

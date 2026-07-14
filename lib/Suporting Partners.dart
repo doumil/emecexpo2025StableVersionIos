@@ -289,16 +289,6 @@ class _SupportingPScreenState extends State<SupportingPScreen> {
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _loadSponsorData,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.secondaryColor,
-              ),
-              child: Text(
-                'Try Again',
-                style: TextStyle(color: theme.whiteColor),
-              ),
-            ),
           ],
         ),
       );

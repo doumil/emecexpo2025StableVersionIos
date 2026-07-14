@@ -5,7 +5,10 @@ class AppThemeData {
   final Color secondaryColor;
   final Color blackColor;
   final Color whiteColor;
-  final Color redColor; // Note: 'red_color' in your model, but 'reed_color' in your API.
+  final Color redColor;
+  final String appTitle;
+  final String bannerUrl;
+  final String logoWhiteUrl;
 
   AppThemeData({
     required this.primaryColor,
@@ -13,36 +16,54 @@ class AppThemeData {
     required this.blackColor,
     required this.whiteColor,
     required this.redColor,
+    required this.appTitle,
+    required this.bannerUrl,
+    required this.logoWhiteUrl,
   });
 
-  factory AppThemeData.fromApi(Map<String, dynamic>? json) {
-    if (json == null) {
-      debugPrint("⚠️ API 'data' field is null. Returning default theme.");
-      return defaultTheme();
-    }
+  // --- Getters الذكية للصور ---
 
-    // Helper function to safely extract and parse the color value from a nested map
+  // كترجع ImageProvider للبانر
+  ImageProvider get bannerImage {
+    if (bannerUrl.contains('http')) {
+      return NetworkImage(bannerUrl);
+    }
+    return AssetImage(bannerUrl);
+  }
+
+  // كترجع ImageProvider للوغو
+  ImageProvider get logoImage {
+    if (logoWhiteUrl.contains('http')) {
+      return NetworkImage(logoWhiteUrl);
+    }
+    return AssetImage(logoWhiteUrl);
+  }
+
+  // --- Factory و الـ Logic ديال التحويل ---
+
+  factory AppThemeData.fromApi(Map<String, dynamic>? json) {
+    if (json == null) return defaultTheme();
+
     Color _parseColorValue(Map<String, dynamic>? colorData, {Color defaultColor = Colors.black}) {
       if (colorData != null && colorData['value'] != null) {
-        final String hexString = colorData['value'];
         try {
-          // Add transparency and parse the hex string
-          final buffer = StringBuffer();
-          if (hexString.length == 6) {
-            buffer.write('ff'); // Add full opacity if not specified
-          } else if (hexString.length == 8) {
-            // Handle the '0x' prefix
-            return Color(int.parse(hexString, radix: 16));
-          }
-          buffer.write(hexString.replaceFirst('0x', ''));
-
-          return Color(int.parse(buffer.toString(), radix: 16));
-        } catch (e) {
-          debugPrint("Error parsing hex color value: $e, using default color.");
-          return defaultColor;
-        }
+          String hex = colorData['value'].toString().replaceFirst('#', '');
+          // التأكد من أن اللون بـ format صحيح 0xFF...
+          if (hex.startsWith('0x')) return Color(int.parse(hex));
+          if (hex.length == 6) hex = 'ff$hex';
+          return Color(int.parse(hex, radix: 16));
+        } catch (_) { return defaultColor; }
       }
       return defaultColor;
+    }
+
+    String _parseStringValue(dynamic data, {required String defaultValue}) {
+      if (data == null) return defaultValue;
+      if (data is Map && data['value'] != null) {
+        return data['value'].toString();
+      }
+      if (data is String && data.isNotEmpty) return data;
+      return defaultValue;
     }
 
     return AppThemeData(
@@ -50,7 +71,10 @@ class AppThemeData {
       secondaryColor: _parseColorValue(json['secondary_color'] as Map<String, dynamic>?),
       blackColor: _parseColorValue(json['black_color'] as Map<String, dynamic>?),
       whiteColor: _parseColorValue(json['white_color'] as Map<String, dynamic>?),
-      redColor: _parseColorValue(json['reed_color'] as Map<String, dynamic>?), // ✅ NOTE: API uses "reed_color"
+      redColor: _parseColorValue(json['reed_color'] as Map<String, dynamic>?),
+      appTitle: _parseStringValue(json['app_title'], defaultValue: "EMEC EXPO"),
+      bannerUrl: _parseStringValue(json['banner_url'], defaultValue: 'assets/logo15.png'),
+      logoWhiteUrl: _parseStringValue(json['logo_white_url'], defaultValue: 'assets/logo15.png'),
     );
   }
 
@@ -61,6 +85,9 @@ class AppThemeData {
       blackColor: Colors.black,
       whiteColor: Colors.white,
       redColor: Colors.red,
+      appTitle: "EMEC EXPO",
+      bannerUrl: 'assets/logo15.png',
+      logoWhiteUrl: 'assets/EMEC-LOGO.png',
     );
   }
 }

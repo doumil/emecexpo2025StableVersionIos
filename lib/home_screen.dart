@@ -5,38 +5,37 @@ import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
-
-// NOTE: Assuming these imports exist and are correct
 import 'package:emecexpo/services/onwillpop_services.dart';
-import 'package:emecexpo/constants.dart'; // Should contain DrawerSections enum
+import 'package:emecexpo/constants.dart';
 import 'package:emecexpo/model/user_model.dart';
 import 'package:emecexpo/login_screen.dart';
 import 'package:emecexpo/providers/menu_provider.dart';
 import 'package:emecexpo/providers/theme_provider.dart';
-import 'model/app_theme_data.dart'; // Assuming AppThemeData is defined here or accessible
+import 'package:emecexpo/global/app_config.dart';
+import 'model/app_theme_data.dart';
+import 'main.dart';
 
-// --- HELPER CLASS FOR MENU ITEMS ---
 class MenuItem {
   final String title;
   final IconData icon;
   final DrawerSections section;
-  final bool isCustomCard; // Flag for the special layout rule (first card is big)
+  final bool isCustomCard;
+  final bool isEnabled;
 
   MenuItem({
     required this.title,
     required this.icon,
     required this.section,
     this.isCustomCard = false,
+    required this.isEnabled,
   });
 }
-// ----------------------------------------
 
 class HomeScreen extends StatefulWidget {
   final User? user;
-  final OnNavigateCallback onNavigate; // Assumed definition: typedef void OnNavigateCallback(DrawerSections section);
+  final OnNavigateCallback onNavigate;
 
-  const HomeScreen({Key? key, this.user, required this.onNavigate})
-      : super(key: key);
+  const HomeScreen({Key? key, this.user, required this.onNavigate}) : super(key: key);
 
   @override
   _HomeScreenState createState() => _HomeScreenState();
@@ -44,23 +43,15 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   User? _loggedInUser;
-  // Initialize prefs as late, it will be set in _initializeUserAndToken
   late SharedPreferences prefs;
-
-  static const String _bannerImageUrl =
-      'https://buzzevents.co/uploads/800x400-EMECEXPO-2025.jpg';
 
   @override
   void initState() {
     super.initState();
     _initializeUserAndToken();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<MenuProvider>(context, listen: false).fetchMenuConfig();
-    });
   }
 
-  // Helper to initialize SharedPreferences and user data
-  _initializeUserAndToken() async {
+  Future<void> _initializeUserAndToken() async {
     prefs = await SharedPreferences.getInstance();
     User? userFromWidget = widget.user;
     User? userFromPrefs;
@@ -89,12 +80,8 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // 💡 CORRECTED: Actual logout logic. We call getInstance() to ensure prefs is initialized.
   Future<void> _logoutConfirmed() async {
-    // Re-initialize prefs to guarantee it's not null/uninitialized (Fixes the syntax issue)
     prefs = await SharedPreferences.getInstance();
-
-    // Perform the logout actions
     await prefs.remove('authToken');
     await prefs.remove('currentUserJson');
 
@@ -105,11 +92,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 💡 NEW: Function to show the confirmation dialog
   Future<void> _showLogoutConfirmationDialog(BuildContext context, AppThemeData theme) async {
     return showDialog<void>(
       context: context,
-      barrierDismissible: false, // user must tap button!
+      barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Confirm Logout'),
@@ -122,22 +108,14 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           actions: <Widget>[
             TextButton(
-              child: Text(
-                'Cancel',
-                style: TextStyle(color: theme.primaryColor),
-              ),
-              onPressed: () {
-                Navigator.of(context).pop(); // Dismiss the dialog
-              },
+              child: Text('Cancel', style: TextStyle(color: theme.primaryColor)),
+              onPressed: () => Navigator.of(context).pop(),
             ),
             TextButton(
-              child: Text(
-                'Logout',
-                style: TextStyle(color: theme.secondaryColor, fontWeight: FontWeight.bold),
-              ),
+              child: Text('Logout', style: TextStyle(color: theme.secondaryColor, fontWeight: FontWeight.bold)),
               onPressed: () {
-                Navigator.of(context).pop(); // Dismiss the dialog first
-                _logoutConfirmed(); // Execute the actual logout logic
+                Navigator.of(context).pop();
+                _logoutConfirmed();
               },
             ),
           ],
@@ -146,44 +124,21 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Helper method to map MenuConfig booleans to a final, filtered List<MenuItem>
-  List<MenuItem> _getVisibleMenuItems(MenuConfig menuConfig) {
-    // Define all possible items. The order here determines the layout order.
-    // 💡 CHANGE: 'My Agenda' moved to the 3rd spot to be one of the small cards.
-    // 'Exhibitors' is moved down to the 4th spot.
-    final List<Map<String, dynamic>> allItems = [
-      // 1. BIG CARD: My Badge (Custom card flag set)
-      {'title': 'My Badge', 'icon': Icons.qr_code_scanner, 'section': DrawerSections.myBadge, 'field': menuConfig.badge, 'custom': true},
-
-      // 2. SMALL CARD 1: Floor Plan
-      {'title': 'Floor Plan', 'icon': Icons.location_on_outlined, 'section': DrawerSections.eFP, 'field': menuConfig.floorPlan},
-
-      // 3. SMALL CARD 2: My Agenda (NEWLY PRIORITIZED)
-      {'title': 'My Agenda', 'icon': Icons.calendar_today_outlined, 'section': DrawerSections.myAgenda, 'field': menuConfig.program},
-
-      // 4. REST OF ITEMS (Order doesn't matter for the first row anymore, but maintained for the rest)
-      {'title': 'Exhibitors', 'icon': Icons.store_mall_directory_outlined, 'section': DrawerSections.exhibitors, 'field': menuConfig.exhibitors},
-      {'title': 'Networking', 'icon': Icons.people_outline, 'section': DrawerSections.networking, 'field': menuConfig.networking},
-      {'title': 'Products', 'icon': Icons.category_outlined, 'section': DrawerSections.products, 'field': menuConfig.products},
-      {'title': 'Conferences', 'icon': Icons.account_balance, 'section': DrawerSections.congresses, 'field': menuConfig.congresses},
-      {'title': 'Speakers', 'icon': Icons.person_outline, 'section': DrawerSections.speakers, 'field': menuConfig.speakers},
-      {'title': 'Partners', 'icon': Icons.handshake_outlined, 'section': DrawerSections.partners, 'field': menuConfig.partners},
-      {'title': 'Sponsors', 'icon': Icons.favorite_outline, 'section': DrawerSections.sponsors, 'field': menuConfig.sponsors},
+  // 🟩 الترتيب السحري الجديد باش تجي My Agenda صغيورة ف الجنب د الـ Badge
+  List<MenuItem> _getAllMenuItems(MenuConfig? menuConfig) {
+    return [
+      MenuItem(title: 'My Badge', icon: Icons.qr_code_scanner, section: DrawerSections.myBadge, isCustomCard: true, isEnabled: menuConfig?.badge ?? true), // Index 0 -> الكبيرة
+      MenuItem(title: 'Floor Plan', icon: Icons.location_on_outlined, section: DrawerSections.eFP, isEnabled: menuConfig?.floorPlan ?? true), // Index 1 -> الصغيرة الأولى فوق ف الجنب
+      MenuItem(title: 'My Agenda', icon: Icons.calendar_today_outlined, section: DrawerSections.myAgenda, isEnabled: menuConfig?.badge ?? true), // Index 2 -> الصغيرة الثانية تحتها ف الجنب 🎯
+      MenuItem(title: 'Program', icon: Icons.event_note, section: DrawerSections.program, isEnabled: menuConfig?.program ?? true), // باقي الكروت كيجيو ف الـ Grid العادي متناسقين جوج بجوج
+      MenuItem(title: 'Exhibitors', icon: Icons.store_mall_directory_outlined, section: DrawerSections.exhibitors, isEnabled: menuConfig?.exhibitors ?? true),
+      MenuItem(title: 'Networking', icon: Icons.people_outline, section: DrawerSections.networking, isEnabled: menuConfig?.networking ?? true),
+      MenuItem(title: 'Speakers', icon: Icons.person_outline, section: DrawerSections.speakers, isEnabled: menuConfig?.speakers ?? true),
+      MenuItem(title: 'Partners', icon: Icons.handshake_outlined, section: DrawerSections.partners, isEnabled: menuConfig?.partners ?? true),
+      MenuItem(title: 'Sponsors', icon: Icons.favorite_outline, section: DrawerSections.sponsors, isEnabled: menuConfig?.sponsors ?? true),
     ];
-
-    // Filter items where the API field is explicitly true
-    return allItems
-        .where((item) => item['field'] == true)
-        .map((item) => MenuItem(
-      title: item['title'] as String,
-      icon: item['icon'] as IconData,
-      section: item['section'] as DrawerSections,
-      isCustomCard: item['custom'] == true,
-    ))
-        .toList();
   }
 
-  // Single, flexible card builder
   Widget _buildFlexibleMenuCard({
     required BuildContext context,
     required MenuItem item,
@@ -196,41 +151,42 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     final theme = themeProvider.currentTheme;
 
-    // 💡 FIX: Force center alignment if this is the wide 'My Badge' card.
-    // Otherwise, use center for standard cards, or start for other wide cards.
     CrossAxisAlignment alignment = CrossAxisAlignment.center;
     if (isWide && item.title != 'My Badge') {
       alignment = CrossAxisAlignment.start;
     }
 
     return GestureDetector(
-      onTap: () {
-        widget.onNavigate(item.section);
-      },
+      onTap: item.isEnabled ? () => widget.onNavigate(item.section) : null,
       child: Container(
         height: cardHeight,
         decoration: BoxDecoration(
-          color: theme.primaryColor.withOpacity(0.1),
+          color: item.isEnabled
+              ? theme.primaryColor.withOpacity(0.1)
+              : Colors.white.withOpacity(0.05),
           borderRadius: BorderRadius.circular(20.0),
-          border: Border.all(color: theme.whiteColor.withOpacity(0.2)),
+          border: Border.all(
+              color: item.isEnabled
+                  ? theme.whiteColor.withOpacity(0.2)
+                  : Colors.white.withOpacity(0.05)
+          ),
         ),
-        padding: EdgeInsets.symmetric(
-            horizontal: horizontalPadding, vertical: isWide ? 15 : 10),
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: isWide ? 15 : 10),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: alignment, // Use the determined alignment
+          crossAxisAlignment: alignment,
           children: <Widget>[
             Icon(
               item.icon,
               size: iconSize,
-              color: theme.secondaryColor,
+              color: item.isEnabled ? theme.secondaryColor : Colors.white30,
             ),
             SizedBox(height: isWide ? 12.0 : 8.0),
             Text(
               item.title,
               textAlign: alignment == CrossAxisAlignment.start ? TextAlign.left : TextAlign.center,
               style: TextStyle(
-                color: theme.whiteColor,
+                color: item.isEnabled ? theme.whiteColor : Colors.white30,
                 fontSize: fontSize,
                 fontWeight: isWide ? FontWeight.w600 : FontWeight.w500,
               ),
@@ -252,40 +208,22 @@ class _HomeScreenState extends State<HomeScreen> {
     return Consumer<MenuProvider>(
       builder: (context, menuProvider, child) {
         final menuConfig = menuProvider.menuConfig;
+        final List<MenuItem> allMenuItems = _getAllMenuItems(menuConfig);
+        final int itemCount = allMenuItems.length;
 
-        if (menuConfig == null) {
-          return Scaffold(
-            backgroundColor: theme.blackColor,
-            body: Center(
-                child: CircularProgressIndicator(
-                  color: theme.secondaryColor,
-                )),
-          );
-        }
-
-        // 1. Get the final, filtered list of items
-        final List<MenuItem> allVisibleMenuItems = _getVisibleMenuItems(menuConfig);
-        final int itemCount = allVisibleMenuItems.length;
-
-        // --- Dynamic Layout Generation ---
         final List<Widget> menuWidgets = [];
         int index = 0;
         final double hSpacing = width * 0.03;
         final double vSpacing = height * 0.025;
 
         if (itemCount > 0) {
-          // Original layout logic: Special layout if total items are odd OR the first item is marked 'custom' (My Badge) AND there are 3+ items.
-          // This logic remains to trigger the desired 3-card layout (1 big, 2 small) if the top three are visible.
-          bool isFirstRowSpecial = ((itemCount % 2 != 0) || allVisibleMenuItems[0].isCustomCard) && itemCount >= 3;
+          bool isFirstRowSpecial = ((itemCount % 2 != 0) || allMenuItems[0].isCustomCard) && itemCount >= 3;
 
           if (isFirstRowSpecial) {
-            // Layout 1: Big Card (index 0 - My Badge) + 2 Small Cards (Floor Plan, My Agenda)
-
-            // Check if the required 3 items exist and are enabled
-            if (itemCount >= 3 && allVisibleMenuItems[0].isCustomCard) {
+            if (itemCount >= 3 && allMenuItems[0].isCustomCard) {
               final bigCard = _buildFlexibleMenuCard(
                 context: context,
-                item: allVisibleMenuItems[index], // My Badge
+                item: allMenuItems[index],
                 cardHeight: height * 0.28,
                 iconSize: 60,
                 fontSize: 22.0,
@@ -296,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               final smallCard1 = _buildFlexibleMenuCard(
                 context: context,
-                item: allVisibleMenuItems[index + 1], // Floor Plan
+                item: allMenuItems[index + 1],
                 cardHeight: height * 0.13,
                 iconSize: 40,
                 fontSize: 15.0,
@@ -306,7 +244,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               final smallCard2 = _buildFlexibleMenuCard(
                 context: context,
-                item: allVisibleMenuItems[index + 2], // My Agenda
+                item: allMenuItems[index + 2],
                 cardHeight: height * 0.13,
                 iconSize: 40,
                 fontSize: 15.0,
@@ -314,15 +252,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 themeProvider: themeProvider,
               );
 
-              // Assemble the special row
               menuWidgets.add(
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(flex: 3, child: bigCard), // ~60% width
+                    Expanded(flex: 3, child: bigCard),
                     SizedBox(width: hSpacing),
                     Expanded(
-                      flex: 2, // ~40% width
+                      flex: 2,
                       child: Column(
                         children: [
                           smallCard1,
@@ -335,69 +272,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               );
               menuWidgets.add(SizedBox(height: vSpacing));
-              index += 3; // Advance index by 3
+              index += 3;
             }
-          } else if (itemCount >= 2 && index == 0) {
-            // Layout 2: Two equal cards (For the first row if it's not the special 3-card layout)
-            final card1 = _buildFlexibleMenuCard(
-              context: context,
-              item: allVisibleMenuItems[index],
-              cardHeight: height * 0.2,
-              iconSize: 40,
-              fontSize: 15.0,
-              horizontalPadding: width * 0.03,
-              themeProvider: themeProvider,
-            );
-            final card2 = _buildFlexibleMenuCard(
-              context: context,
-              item: allVisibleMenuItems[index + 1],
-              cardHeight: height * 0.2,
-              iconSize: 40,
-              fontSize: 15.0,
-              horizontalPadding: width * 0.03,
-              themeProvider: themeProvider,
-            );
-
-            menuWidgets.add(
-              Row(
-                children: [
-                  Expanded(child: card1),
-                  SizedBox(width: hSpacing),
-                  Expanded(child: card2),
-                ],
-              ),
-            );
-            menuWidgets.add(SizedBox(height: vSpacing));
-            index += 2;
-          } else if (itemCount == 1 && index == 0) {
-            // Layout 3: Single card (If only one item exists)
-            final singleCard = _buildFlexibleMenuCard(
-              context: context,
-              item: allVisibleMenuItems[index],
-              cardHeight: height * 0.2,
-              iconSize: 40,
-              fontSize: 15.0,
-              horizontalPadding: width * 0.03,
-              themeProvider: themeProvider,
-            );
-
-            menuWidgets.add(
-              Row(
-                children: [
-                  Expanded(child: singleCard),
-                  Expanded(child: SizedBox()), // Fill space
-                ],
-              ),
-            );
-            menuWidgets.add(SizedBox(height: vSpacing));
-            index += 1;
           }
 
-          // Loop for remaining items (Always two per row, handling any remainder from the first row)
           while (itemCount - index >= 2) {
             final card1 = _buildFlexibleMenuCard(
               context: context,
-              item: allVisibleMenuItems[index],
+              item: allMenuItems[index],
               cardHeight: height * 0.2,
               iconSize: 40,
               fontSize: 15.0,
@@ -406,7 +288,7 @@ class _HomeScreenState extends State<HomeScreen> {
             );
             final card2 = _buildFlexibleMenuCard(
               context: context,
-              item: allVisibleMenuItems[index + 1],
+              item: allMenuItems[index + 1],
               cardHeight: height * 0.2,
               iconSize: 40,
               fontSize: 15.0,
@@ -427,11 +309,10 @@ class _HomeScreenState extends State<HomeScreen> {
             index += 2;
           }
 
-          // Handle the final single card
           if (itemCount - index == 1) {
             final singleCard = _buildFlexibleMenuCard(
               context: context,
-              item: allVisibleMenuItems[index],
+              item: allMenuItems[index],
               cardHeight: height * 0.2,
               iconSize: 40,
               fontSize: 15.0,
@@ -443,15 +324,13 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 children: [
                   Expanded(child: singleCard),
-                  Expanded(child: SizedBox()),
+                  Expanded(child: const SizedBox()),
                 ],
               ),
             );
             menuWidgets.add(SizedBox(height: vSpacing));
           }
         }
-        // --- END Dynamic Layout Generation ---
-
 
         return WillPopScope(
           onWillPop: OnWillPop().onWillPop1,
@@ -459,7 +338,7 @@ class _HomeScreenState extends State<HomeScreen> {
             appBar: AppBar(
               title: Center(
                 child: Text(
-                  'Welcome, ${_loggedInUser?.prenom ?? _loggedInUser?.name ??'Guest'}!',
+                  'Welcome, ${_loggedInUser?.prenom ?? _loggedInUser?.name ?? 'Guest'}!',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -471,26 +350,22 @@ class _HomeScreenState extends State<HomeScreen> {
               backgroundColor: theme.blackColor,
               actions: <Widget>[
                 IconButton(
-                  icon: Icon(
-                    Icons.logout,
-                    color: theme.whiteColor,
-                  ),
-                  onPressed: () {
-                    // 💡 Call the confirmation dialog
-                    _showLogoutConfirmationDialog(context, theme);
-                  },
+                  icon: Icon(Icons.logout, color: theme.whiteColor),
+                  onPressed: () => _showLogoutConfirmationDialog(context, theme),
                   tooltip: 'Logout',
                 ),
               ],
               elevation: 0,
             ),
             body: LayoutBuilder(
-              builder: (BuildContext context,
-                  BoxConstraints viewportConstraints) {
+              builder: (BuildContext context, BoxConstraints viewportConstraints) {
                 return SingleChildScrollView(
                   child: FadeInDown(
                     duration: const Duration(milliseconds: 500),
                     child: Container(
+                      constraints: BoxConstraints(
+                        minHeight: viewportConstraints.maxHeight,
+                      ),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
@@ -501,47 +376,22 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       ),
-                      padding: EdgeInsets.symmetric(
-                          horizontal: width * 0.04, vertical: height * 0.02),
+                      padding: EdgeInsets.symmetric(horizontal: width * 0.04, vertical: height * 0.02),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // DYNAMIC BANNER IMAGE
                           Container(
-                            padding: EdgeInsets.fromLTRB(
-                                width * 0.04, width * 0.04, width * 0.04,
-                                width * 0.01),
-                            child: Image.network(
-                              _bannerImageUrl,
+                            padding: EdgeInsets.fromLTRB(width * 0.04, width * 0.0, width * 0.04, width * 0.01),
+                            child: Image(
+                              image: theme.bannerImage,
+                              height: height * 0.24,
                               fit: BoxFit.contain,
-                              loadingBuilder: (BuildContext context,
-                                  Widget child,
-                                  ImageChunkEvent? loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Center(
-                                  child: LinearProgressIndicator(
-                                    value: loadingProgress.expectedTotalBytes !=
-                                        null
-                                        ? loadingProgress
-                                        .cumulativeBytesLoaded /
-                                        loadingProgress.expectedTotalBytes!
-                                        : null,
-                                    color: theme.secondaryColor,
-                                    backgroundColor:
-                                    theme.whiteColor.withOpacity(0.3),
-                                  ),
-                                );
-                              },
                               errorBuilder: (context, error, stackTrace) {
-                                return Image.asset(
-                                    "assets/banner.png", fit: BoxFit.contain);
+                                return const SizedBox();
                               },
                             ),
                           ),
-
-                          SizedBox(height: height * 0.02),
-
-                          // DYNAMIC MENU WIDGETS
+                          SizedBox(height: height * 0.01),
                           ...menuWidgets,
                         ],
                       ),

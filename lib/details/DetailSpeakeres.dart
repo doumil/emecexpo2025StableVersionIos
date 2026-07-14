@@ -7,14 +7,13 @@ import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 
-// Assuming your model and API imports are correct
-import '../../api_services/speaker_api_service.dart'; // 👈 NEW: Import to access imageBaseUrl
+import '../../api_services/speaker_api_service.dart';
 import '../../model/app_theme_data.dart';
 import '../../model/speakers_model.dart';
 import '../../providers/theme_provider.dart';
-import 'DetailSessionScreen.dart'; // Import the session detail screen
+import 'DetailSessionScreen.dart';
 
-// Constants assumed from speakers_model.dart
+// Default fallback image URL for speakers without profile pictures
 const String kDefaultSpeakerImageUrl = 'https://buzzevents.co/uploads/ICON-EMEC.png';
 
 class DetailSpeakersScreen extends StatefulWidget {
@@ -28,10 +27,8 @@ class DetailSpeakersScreen extends StatefulWidget {
 }
 
 class _DetailSpeakersScreenState extends State<DetailSpeakersScreen> {
-
   List<ProgramSession> _allSessions = [];
   List<ProgramSession> _filteredSessions = [];
-
   List<String> _apiDateFilters = [];
   bool isLoading = true;
   int? _selectedDateIndex;
@@ -46,25 +43,21 @@ class _DetailSpeakersScreenState extends State<DetailSpeakersScreen> {
   }
 
   Widget _getSpeakerImage(double radius) {
-    // 💡 Access the theme for background/placeholder color
     final theme = Provider.of<ThemeProvider>(context, listen: false).currentTheme;
 
-    // Fetch the image base URL from the service
-    const String imageBaseUrl = SpeakerApiService.imageBaseUrl;
+    // ✅ FIXED: Changed from 'const' to 'final' because the base URL is dynamic
+    final String imageBaseUrl = SpeakerApiService.imageBaseUrl;
 
-    // Get the relative image path from the speaker object, default to a sensible file name
-    // Use the null-aware operator to safely access 'pic' and default if null
     final String relativePicPath = widget.speaker?.pic ?? 'ICON-EMEC.png';
 
-    // Construct the full URL
-    // Only prepend the base URL if the pic path isn't already a full URL (though unlikely here)
+    // Construct the complete remote URL for the image asset
     final String finalUrl = relativePicPath.isNotEmpty
         ? imageBaseUrl + relativePicPath
-        : kDefaultSpeakerImageUrl; // Fallback URL
+        : kDefaultSpeakerImageUrl;
 
     return CircleAvatar(
       radius: radius,
-      backgroundColor: Colors.grey[200], // Default grey background
+      backgroundColor: Colors.grey[200],
       child: ClipOval(
         child: Image.network(
           finalUrl,
@@ -76,19 +69,19 @@ class _DetailSpeakersScreenState extends State<DetailSpeakersScreen> {
             return Container(
               width: radius * 2,
               height: radius * 2,
-              color: Colors.grey[200], // Light grey placeholder
+              color: Colors.grey[200],
               child: Center(
                 child: CircularProgressIndicator(
                   value: loadingProgress.expectedTotalBytes != null
                       ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
                       : null,
-                  color: theme.secondaryColor, // Use accent color for loading indicator
+                  color: theme.secondaryColor,
                 ),
               ),
             );
           },
           errorBuilder: (context, error, stackTrace) => Image.asset(
-            'assets/placeholder.png', // Fallback to a local asset
+            'assets/placeholder.png',
             fit: BoxFit.cover,
             width: radius * 2,
             height: radius * 2,
@@ -102,7 +95,6 @@ class _DetailSpeakersScreenState extends State<DetailSpeakersScreen> {
     isLoading = true;
     if (mounted) setState(() {});
 
-    // Ensure sessions list is not null
     _allSessions = widget.speaker?.sessions ?? [];
 
     _apiDateFilters = widget.periods.map((dateString) {
@@ -118,7 +110,6 @@ class _DetailSpeakersScreenState extends State<DetailSpeakersScreen> {
       setState(() {
         isLoading = false;
         _filteredSessions = List.from(_allSessions);
-        // Automatically select the first date filter if available
         if (_apiDateFilters.isNotEmpty) {
           _filterSessionsByDate(0);
         } else {
@@ -138,8 +129,6 @@ class _DetailSpeakersScreenState extends State<DetailSpeakersScreen> {
     }
 
     final String selectedFilterText = _apiDateFilters[index].toLowerCase();
-
-    // NOTE: This format must match the input format in your JSON/model for dateDeb/dateFin
     final DateFormat sessionInputFormat = DateFormat('MM/dd/yyyy h:mm a');
 
     List<ProgramSession> sessionsForDay = _allSessions.where((session) {
@@ -192,21 +181,16 @@ class _DetailSpeakersScreenState extends State<DetailSpeakersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 💡 Access the theme provider and get the current theme.
     final themeProvider = Provider.of<ThemeProvider>(context);
     final theme = themeProvider.currentTheme;
 
-    // Safely retrieve speaker details using null checks and defaults
     final String speakerName = widget.speaker != null
         ? "${widget.speaker!.prenom} ${widget.speaker!.nom}"
         : "Speaker Name";
     final String speakerPoste = widget.speaker?.poste ?? "Speaker Position/Poste";
-    // Use the 'company' getter from the Speakers model
     final String speakerCompany = widget.speaker?.company ?? "Company";
-    // Handle potentially null biography (the source of the original error)
     final String speakerBio = widget.speaker?.biographie ?? "No biography available.";
 
-    // Theme color variables for consistency
     final Color primaryContentColor = theme.blackColor;
     final Color accentColor = theme.secondaryColor;
 
@@ -220,22 +204,6 @@ class _DetailSpeakersScreenState extends State<DetailSpeakersScreen> {
           icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        actions: [
-          /*
-          IconButton(
-            icon: Icon(
-              _isSpeakerFavorite ? Icons.star : Icons.star_border,
-              color: Colors.white,
-            ),
-            onPressed: () {
-              setState(() {
-                _isSpeakerFavorite = !_isSpeakerFavorite;
-                widget.speaker?.isFavorite = _isSpeakerFavorite;
-              });
-            },
-          ),
-          */
-        ],
       ),
       body: FadeInDown(
         duration: const Duration(milliseconds: 500),
@@ -243,7 +211,6 @@ class _DetailSpeakersScreenState extends State<DetailSpeakersScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- Speaker Profile Section ---
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
@@ -263,7 +230,7 @@ class _DetailSpeakersScreenState extends State<DetailSpeakersScreen> {
                     Stack(
                       alignment: Alignment.bottomRight,
                       children: [
-                        _getSpeakerImage(50), // 👈 Image loading is fixed here
+                        _getSpeakerImage(50),
                         Positioned(
                           right: 0,
                           bottom: 0,
@@ -297,29 +264,25 @@ class _DetailSpeakersScreenState extends State<DetailSpeakersScreen> {
                   ],
                 ),
               ),
-
-              // --- Biography Section ---
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 20.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      "Biography",
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: primaryContentColor),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      speakerBio,
-                      style: TextStyle(fontSize: 16, color: primaryContentColor.withOpacity(0.7), height: 1.5),
-                      textAlign: TextAlign.justify,
-                    ),
+                    // Text(
+                    //   "Biography",
+                    //   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: primaryContentColor),
+                    // ),
+                    // const SizedBox(height: 10),
+                    // Text(
+                    //   speakerBio,
+                    //   style: TextStyle(fontSize: 16, color: primaryContentColor.withOpacity(0.7), height: 1.5),
+                    //   textAlign: TextAlign.justify,
+                    // ),
                   ],
                 ),
               ),
               const SizedBox(height: 5),
-
-              // --- Speaker's Sessions Section ---
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20.0),
                 child: Text(
@@ -328,8 +291,6 @@ class _DetailSpeakersScreenState extends State<DetailSpeakersScreen> {
                 ),
               ),
               const SizedBox(height: 15),
-
-              // Date Selection Buttons (using dynamic API filters)
               isLoading
                   ? Center(child: Padding(padding: const EdgeInsets.all(8.0), child: Text("Loading program days...", style: TextStyle(color: primaryContentColor.withOpacity(0.6)))))
                   : _apiDateFilters.isEmpty
@@ -350,8 +311,6 @@ class _DetailSpeakersScreenState extends State<DetailSpeakersScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-
-              // List of Sessions
               isLoading
                   ? Center(child: Padding(padding: const EdgeInsets.all(30.0), child: CircularProgressIndicator(color: accentColor)))
                   : _allSessions.isEmpty
@@ -432,7 +391,6 @@ class _DetailSpeakersScreenState extends State<DetailSpeakersScreen> {
     final Color accentColor = theme.secondaryColor;
     final Color primaryContentColor = theme.blackColor;
 
-
     try {
       final DateTime start = sessionInputFormat.parse(session.dateDeb);
       final DateTime end = sessionInputFormat.parse(session.dateFin);
@@ -454,7 +412,6 @@ class _DetailSpeakersScreenState extends State<DetailSpeakersScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // STATIC TAG/TYPE
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
@@ -470,7 +427,6 @@ class _DetailSpeakersScreenState extends State<DetailSpeakersScreen> {
                 ),
               ),
             ),
-
             const SizedBox(height: 10),
             Text(
               session.nom,
@@ -481,8 +437,6 @@ class _DetailSpeakersScreenState extends State<DetailSpeakersScreen> {
               ),
             ),
             const SizedBox(height: 5),
-
-            // Time and Date
             Row(
               children: [
                 const Icon(Icons.access_time, size: 16, color: Colors.grey),
@@ -498,8 +452,6 @@ class _DetailSpeakersScreenState extends State<DetailSpeakersScreen> {
               ],
             ),
             const SizedBox(height: 5),
-
-            // Location
             if (session.emplacement != null && session.emplacement!.isNotEmpty)
               Row(
                 children: [
@@ -514,14 +466,11 @@ class _DetailSpeakersScreenState extends State<DetailSpeakersScreen> {
                   ),
                 ],
               ),
-
             const SizedBox(height: 10),
-
             Align(
               alignment: Alignment.bottomRight,
               child: OutlinedButton(
                 onPressed: () {
-                  // Navigate to DetailSessionScreen
                   Navigator.push(
                     context,
                     MaterialPageRoute(

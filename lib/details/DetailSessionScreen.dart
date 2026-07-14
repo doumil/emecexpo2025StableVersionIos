@@ -136,13 +136,6 @@ class DetailSessionScreen extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
-          // 💡 ADDED: Icon is typically white against primaryColor AppBar
-          IconButton(
-            icon: Icon(Icons.star_border, color: theme.whiteColor),
-            onPressed: () {
-              // TODO: Handle favorite/bookmark
-            },
-          ),
         ],
       ),
       body: SingleChildScrollView(
